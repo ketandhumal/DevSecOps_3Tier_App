@@ -1,0 +1,98 @@
+pipeline {
+    agent any
+    
+    tools{
+        nodejs 'nodejs23'
+    }
+    
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'
+    }
+
+    stages {
+        stage('Git Checkout') {
+            steps {
+                git branch: 'dev', url: 'https://github.com/ketandhumal/DevSecOps_3Tier_App.git'
+            }
+        }
+        
+        stage('Frontend Source Code Validation') {
+            steps {
+                dir('client') {
+                    sh 'find . -name "*.js" -exec node --check {} +'
+                }
+            }
+        }
+        
+         stage('Backend Source Code Validation') {
+            steps {
+                dir('api') {
+                    sh 'find . -name "*.js" -exec node --check {} +'
+                }
+            }
+        }
+        
+        stage('GitLeaks Scan') {
+            steps {
+                sh 'gitleaks detect --source ./client --exit-code 1'
+                sh 'gitleaks detect --source ./api --exit-code 1'
+            }
+        }
+        
+         stage('Sonar Qube Analysis') {
+            steps {
+                withSonarQubeEnv('Sonarqube_Server') {
+                    sh '''$SCANNER_HOME/bin/sonar-scanner \
+                            -Dsonar.projectName=NodeJS-Project \
+                            -Dsonar.projectKey=NodeJS-Project
+                      '''
+                }
+            }
+        }
+        
+        stage('Quality Gate Checks') {
+            steps {
+                timeout(time: 1, unit: 'HOURS') {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-tokan'
+                }
+            }
+        }
+        
+        stage('Trivy FS Scan') {
+            steps {
+                sh 'trivy fs --format table -o fs.report.html .'
+            }
+        }
+
+        stage('Build-Tag & Push Backend Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'Docker_Cred') {
+                        dir('api') {
+                            sh 'docker build -t ketandhumal/backend:latest .'
+                            sh 'trivy image --format table -o backend-image-report.html ketandhumal/backend:latest '
+                            sh 'docker push ketandhumal/backend:latest'
+                           
+                        }
+                    }
+                }
+            }
+        }  
+            
+        stage('Build-Tag & Push Frontend Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'Docker_Cred') {
+                        dir('client') {
+                            sh 'docker build -t ketandhumal/frontend:latest .'
+                            sh 'trivy image --format table -o frontend-image-report.html ketandhumal/frontend:latest '
+                            sh 'docker push ketandhumal/frontend:latest'
+                        }
+                    }
+                }
+            }
+        }  
+    
+  
+    }
+}
