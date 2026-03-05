@@ -7,6 +7,8 @@ pipeline {
     
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
+        PROJECT_NAME = '3-Tier-DevSecOps App'
+        ENVIRONMENT  = 'Production' 
     }
 
     stages {
@@ -132,4 +134,62 @@ pipeline {
         }  
         
     }
+    
+    post {
+        success {
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_URL')]) {
+                script {
+                    def message = """{
+                        "text": "*✅ ${PROJECT_NAME} Build Successful!*",
+                        "attachments": [
+                            {
+                                "color": "#36a64f",
+                                "fields": [
+                                    { "title": "Job", "value": "${env.JOB_NAME}", "short": true },
+                                    { "title": "Build", "value": "#${env.BUILD_NUMBER}", "short": true },
+                                    { "title": "Environment", "value": "${ENVIRONMENT}", "short": true },
+                                    { "title": "Build URL", "value": "${env.BUILD_URL}", "short": false }
+                                ],
+                                "footer": "Jenkins CI"
+                            }
+                        ]
+                    }"""
+                    writeFile file: 'slack-payload.json', text: message
+                    sh "curl -X POST -H 'Content-type: application/json' --data @slack-payload.json $SLACK_URL"
+                }
+            }
+        }
+
+        failure {
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_URL')]) {
+                script {
+                    def message = """{
+                        "text": "<!here> *❌ ${PROJECT_NAME} Build Failed!*",
+                        "attachments": [
+                            {
+                                "color": "#FF0000",
+                                "fields": [
+                                    { "title": "Job", "value": "${env.JOB_NAME}", "short": true },
+                                    { "title": "Build", "value": "#${env.BUILD_NUMBER}", "short": true },
+                                    { "title": "Environment", "value": "${ENVIRONMENT}", "short": true },
+                                    { "title": "Build URL", "value": "${env.BUILD_URL}", "short": false }
+                                ],
+                                "footer": "Jenkins CI"
+                            }
+                        ]
+                    }"""
+                    writeFile file: 'slack-payload.json', text: message
+                    sh "curl -X POST -H 'Content-type: application/json' --data @slack-payload.json $SLACK_URL"
+                }
+            }
+        }
+
+        always {
+            echo "Pipeline completed — notification sent to Slack"
+        }
+    }
+    
 }
+
+
+
