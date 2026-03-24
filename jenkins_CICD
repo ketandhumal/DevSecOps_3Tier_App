@@ -140,7 +140,7 @@ pipeline {
             withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_URL')]) {
                 script {
                     def message = """{
-                        "text": "*✅ ${PROJECT_NAME} Build Successful!*",
+                        "text": "*${PROJECT_NAME} Build Successful!*",
                         "attachments": [
                             {
                                 "color": "#36a64f",
@@ -164,7 +164,7 @@ pipeline {
             withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_URL')]) {
                 script {
                     def message = """{
-                        "text": "<!here> *❌ ${PROJECT_NAME} Build Failed!*",
+                        "text": "<!here> * ${PROJECT_NAME} Build Failed!*",
                         "attachments": [
                             {
                                 "color": "#FF0000",
